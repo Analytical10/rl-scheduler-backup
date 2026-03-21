@@ -4,6 +4,7 @@
 
 # ## qiulin13145@gmail.com
 # python -m wandb login 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
+# 471610515@qq.com
 python -m wandb login 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
 # 设置环境变量
 export CUDA_VISIBLE_DEVICES=0,1
@@ -15,8 +16,8 @@ DATASET_PATH="/data/datasets/c4/en"
 WORKERS=8
 
 # 训练超参数
-BATCH_SIZE=256
-TOTAL_BATCH_SIZE=512
+BATCH_SIZE=1
+TOTAL_BATCH_SIZE=2
 LR=0.003
 WARMUP_STEPS=1100
 MAX_STEPS=11000
@@ -33,11 +34,11 @@ RL_HISTORY_LEN=5
 RL_SAVE_BASE_DIR="checkpoints/rl_agents_meta_run"
 RUN_NAME_BASE="60M_RL_"
 MODE='train'
-ROUND=0
+ROUND=256
 RL_BASE_SCHEDULER="cosine"
 
 # Meta-Training 配置
-TOTAL_RL_EPOCHS=20
+TOTAL_RL_EPOCHS=1
 BASE_SEED=128
 
 # [修改] Action Scale 课程学习配置 - 限制最大值为 2.0

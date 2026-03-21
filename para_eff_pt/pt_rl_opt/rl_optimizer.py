@@ -274,7 +274,7 @@ class RL_AdamW_Wrapper(Optimizer):
         if logstd is not None:
             print(f"actor_logstd={logstd}")
 
-    def _print_rl_action_debug(self, state_batch, actions, logprobs):
+    def _print_rl_action_debug(self, state_batch, actions, logprobs, pre_tanh=None):
         try:
             with torch.no_grad():
                 s_t = torch.tensor(state_batch, device=self.device, dtype=torch.float32)
@@ -325,7 +325,12 @@ class RL_AdamW_Wrapper(Optimizer):
                 max_abs_per_dim = abs_a.max(axis=0)
                 print(f"[RL256 DEBUG] max(|a|) per-dim = {max_abs_per_dim}")
 
-                lp_recalc = self.agent.logprob_old(state_batch, actions).astype(np.float32, copy=False)
+                if getattr(self.agent, "squash_actions", False) and pre_tanh is not None:
+                    lp_input = pre_tanh
+                else:
+                    lp_input = actions
+
+                lp_recalc = self.agent.logprob_old(state_batch, lp_input).astype(np.float32, copy=False)
                 lp_saved = logprobs.astype(np.float32, copy=False)
 
                 lp_diff = lp_recalc - lp_saved
@@ -501,7 +506,14 @@ class RL_AdamW_Wrapper(Optimizer):
         local_feats_batch = np.stack(local_feats_list, axis=0)
 
         if self._flag_enabled(2):
-            perm = np.random.permutation(self.num_params)
+            if dist.is_initialized():
+                if self.rank == 0:
+                    perm = np.random.permutation(self.num_params).astype(np.int64)
+                else:
+                    perm = np.empty((self.num_params,), dtype=np.int64)
+                perm = self._ddp_broadcast_perm_from_rank0(perm)
+            else:
+                perm = np.random.permutation(self.num_params).astype(np.int64)
             local_feats_batch = local_feats_batch[perm]
 
         if self._flag_enabled(512):
@@ -511,6 +523,8 @@ class RL_AdamW_Wrapper(Optimizer):
 
         # --- C. Agent 决策 ---
         rank0_only_agent = self._flag_enabled(8) and dist.is_initialized()
+
+        pre_tanh = None
 
         if rank0_only_agent and self.rank != 0:
             actions = np.zeros((self.num_params, self.action_dim), dtype=np.float32)
@@ -529,16 +543,17 @@ class RL_AdamW_Wrapper(Optimizer):
             if self._flag_enabled(1):
                 global_lr_action = float(actions[:, 0].mean())
                 actions[:, 0] = global_lr_action
-                logprobs = self.agent.logprob_old(state_batch, actions).astype(np.float32, copy=False)
+                logprob_input = pre_tanh if self._flag_enabled(256) else actions
+                logprobs = self.agent.logprob_old(state_batch, logprob_input).astype(np.float32, copy=False)
 
         # DDP：以 rank0 actions 为准
         if dist.is_initialized():
             if self.rank == 0:
                 actions_tensor = torch.tensor(actions, device=self.device, dtype=torch.float32)
-                pt_tensor = torch.tensor(pre_tanh, device=self.device, dtype=torch.float32) if pre_tanh is not None else torch.zeros(1)
+                pt_tensor = torch.tensor(pre_tanh, device=self.device, dtype=torch.float32) if pre_tanh is not None else torch.zeros((self.num_params, self.action_dim), device=self.device, dtype=torch.float32)
             else:
                 actions_tensor = torch.zeros((self.num_params, self.action_dim), device=self.device, dtype=torch.float32)
-                pt_tensor = torch.zeros_like(a_tensor) if self._flag_enabled(256) else torch.zeros(1)
+                pt_tensor = torch.zeros((self.num_params, self.action_dim), device=self.device, dtype=torch.float32)
             dist.broadcast(actions_tensor, src=0)
             actions = actions_tensor.cpu().numpy()
             if self._flag_enabled(256):
@@ -560,16 +575,15 @@ class RL_AdamW_Wrapper(Optimizer):
             if pre_tanh is not None:
                 pre_tanh = pre_tanh[perm_np]
 
-            if not (rank0_only_agent and self.rank != 0):
-                logprobs = self.agent.logprob_old(state_batch, actions).astype(np.float32, copy=False)
-
         # 方案A：仅修 round_flags=256 的数值边界问题
         if self._flag_enabled(256):
             _A_EPS = 1e-4
             actions = np.clip(actions, -1.0 + _A_EPS, 1.0 - _A_EPS).astype(np.float32, copy=False)
 
-            if not (rank0_only_agent and self.rank != 0):
-                logprobs = self.agent.logprob_old(state_batch, actions).astype(np.float32, copy=False)
+        # DDP广播/动作变换后统一重算old_logprob，确保(state, action_input, logprob)三者一致
+        if not (rank0_only_agent and self.rank != 0):
+            logprob_input = pre_tanh if self._flag_enabled(256) else actions
+            logprobs = self.agent.logprob_old(state_batch, logprob_input).astype(np.float32, copy=False)
 
         self.prev_actions = actions
 
@@ -684,6 +698,7 @@ class RL_AdamW_Wrapper(Optimizer):
                         state_batch=state_batch,
                         actions=actions,
                         logprobs=logprobs,
+                        pre_tanh=pre_tanh,
                     )
 
                 if abort_training and (not rank0_only_agent or self.rank == 0):
@@ -718,6 +733,7 @@ class RL_AdamW_Wrapper(Optimizer):
                     state_batch=state_batch,
                     actions=actions,
                     logprobs=logprobs,
+                    pre_tanh=pre_tanh,
                 )
 
         self.last_loss = float(loss_val_used)
