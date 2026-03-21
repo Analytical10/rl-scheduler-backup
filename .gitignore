@@ -1,0 +1,3 @@
+# 忽略训练临时产物：checkpoints目录（包括目录下所有文件/子目录）
+checkpoints/
+wandb/

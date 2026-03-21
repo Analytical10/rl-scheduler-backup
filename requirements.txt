@@ -1,0 +1,11 @@
+setuptools==72.1.0
+tqdm==4.66.5
+wandb
+accelerate
+wandb
+safetensors
+transformers
+datasets
+loguru
+bitsandbytes
+accelerate

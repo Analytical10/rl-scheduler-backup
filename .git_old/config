@@ -1,0 +1,14 @@
+[core]
+	repositoryformatversion = 0
+	filemode = true
+	bare = false
+	logallrefupdates = true
+[remote "upstream"]
+	url = https://github.com/qiulin13145/PEFT.git
+	fetch = +refs/heads/rl_scheduler_new:refs/remotes/upstream/rl_scheduler_new
+[branch "rl_scheduler_new"]
+	remote = upstream
+	merge = refs/heads/rl_scheduler_new
+[remote "origin"]
+	url = https://github.com/Analytical10/rl-scheduler-backup
+	fetch = +refs/heads/*:refs/remotes/origin/*

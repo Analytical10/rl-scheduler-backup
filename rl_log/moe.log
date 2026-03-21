@@ -1,0 +1,285 @@
+wandb: Appending key for api.wandb.ai to your netrc file: /root/.netrc
+wandb: W&B API key is configured. Use `wandb login --relogin` to force relogin
+W0320 03:04:45.423000 1271877 site-packages/torch/distributed/run.py:793] 
+W0320 03:04:45.423000 1271877 site-packages/torch/distributed/run.py:793] *****************************************
+W0320 03:04:45.423000 1271877 site-packages/torch/distributed/run.py:793] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0320 03:04:45.423000 1271877 site-packages/torch/distributed/run.py:793] *****************************************
+Starting Qwen2Moe pretraining script
+2026-03-20 03:04:50.915 | INFO     | __main__:main:422 - Global rank 0, local rank 0, device: 0
+2026-03-20 03:04:50.916 | INFO     | __main__:main:426 - Process group initialized
+Starting Qwen2Moe pretraining script
+Starting Qwen2Moe pretraining script
+2026-03-20 03:04:51.081 | INFO     | __main__:main:422 - Global rank 3, local rank 3, device: 3
+2026-03-20 03:04:51.082 | INFO     | __main__:main:426 - Process group initialized
+Starting Qwen2Moe pretraining script
+Starting Qwen2Moe pretraining script
+2026-03-20 03:04:51.209 | INFO     | __main__:main:422 - Global rank 5, local rank 5, device: 5
+2026-03-20 03:04:51.211 | INFO     | __main__:main:426 - Process group initialized
+2026-03-20 03:04:51.277 | INFO     | __main__:main:422 - Global rank 1, local rank 1, device: 1
+2026-03-20 03:04:51.278 | INFO     | __main__:main:426 - Process group initialized
+2026-03-20 03:04:51.285 | INFO     | __main__:main:422 - Global rank 2, local rank 2, device: 2
+2026-03-20 03:04:51.286 | INFO     | __main__:main:426 - Process group initialized
+Starting Qwen2Moe pretraining script
+2026-03-20 03:04:51.444 | INFO     | __main__:main:422 - Global rank 4, local rank 4, device: 4
+2026-03-20 03:04:51.446 | INFO     | __main__:main:426 - Process group initialized
+Starting Qwen2Moe pretraining script
+2026-03-20 03:04:51.625 | INFO     | __main__:main:422 - Global rank 6, local rank 6, device: 6
+2026-03-20 03:04:51.629 | INFO     | __main__:main:426 - Process group initialized
+Starting Qwen2Moe pretraining script
+2026-03-20 03:04:51.779 | INFO     | __main__:main:422 - Global rank 7, local rank 7, device: 7
+2026-03-20 03:04:51.782 | INFO     | __main__:main:426 - Process group initialized
+wandb: Currently logged in as: qiulin13145 to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run anqzwlkq
+wandb: Tracking run with wandb version 0.23.0
+wandb: Run data is saved locally in /home/sql/PEFT/wandb/run-20260320_030452-anqzwlkq
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run qwen2moe_1b_adam_baseline
+wandb: ⭐️ View project at https://wandb.ai/qiulin13145/qwen2moe_pretraining
+wandb: 🚀 View run at https://wandb.ai/qiulin13145/qwen2moe_pretraining/runs/anqzwlkq
+2026-03-20 03:04:54.457 | INFO     | __main__:main:447 - ****************************************
+2026-03-20 03:04:54.457 | INFO     | __main__:main:448 - Starting MoE training with arguments:
+2026-03-20 03:04:54.458 | INFO     | __main__:main:450 -   moe_config                               qwen2-1B
+2026-03-20 03:04:54.458 | INFO     | __main__:main:450 -   num_experts                              32
+2026-03-20 03:04:54.458 | INFO     | __main__:main:450 -   num_experts_per_tok                      4
+2026-03-20 03:04:54.458 | INFO     | __main__:main:450 -   router_aux_loss_coef                     0.01
+2026-03-20 03:04:54.458 | INFO     | __main__:main:450 -   router_z_loss_coef                       0.001
+2026-03-20 03:04:54.459 | INFO     | __main__:main:450 -   tokenizer_path                           ./llama2tokenizer
+2026-03-20 03:04:54.459 | INFO     | __main__:main:450 -   hf_dataset                               True
+2026-03-20 03:04:54.459 | INFO     | __main__:main:450 -   dataset_path                             None
+2026-03-20 03:04:54.459 | INFO     | __main__:main:450 -   batch_size                               64
+2026-03-20 03:04:54.459 | INFO     | __main__:main:450 -   total_batch_size                         512
+2026-03-20 03:04:54.459 | INFO     | __main__:main:450 -   gradient_accumulation                    1
+2026-03-20 03:04:54.460 | INFO     | __main__:main:450 -   max_length                               256
+2026-03-20 03:04:54.460 | INFO     | __main__:main:450 -   num_training_steps                       100000
+2026-03-20 03:04:54.460 | INFO     | __main__:main:450 -   max_train_tokens                         None
+2026-03-20 03:04:54.460 | INFO     | __main__:main:450 -   dtype                                    bfloat16
+2026-03-20 03:04:54.460 | INFO     | __main__:main:450 -   seed                                     42
+2026-03-20 03:04:54.460 | INFO     | __main__:main:450 -   single_gpu                               False
+2026-03-20 03:04:54.461 | INFO     | __main__:main:450 -   workers                                  8
+2026-03-20 03:04:54.461 | INFO     | __main__:main:450 -   activation_checkpointing                 False
+2026-03-20 03:04:54.461 | INFO     | __main__:main:450 -   optimizer                                adamw
+2026-03-20 03:04:54.461 | INFO     | __main__:main:450 -   lr                                       0.0003
+2026-03-20 03:04:54.461 | INFO     | __main__:main:450 -   weight_decay                             0.1
+2026-03-20 03:04:54.461 | INFO     | __main__:main:450 -   grad_clipping                            0.0
+2026-03-20 03:04:54.462 | INFO     | __main__:main:450 -   scheduler                                cosine
+2026-03-20 03:04:54.462 | INFO     | __main__:main:450 -   min_lr_ratio                             0.1
+2026-03-20 03:04:54.462 | INFO     | __main__:main:450 -   warmup_steps                             10000
+2026-03-20 03:04:54.462 | INFO     | __main__:main:450 -   cycle_length                             100000
+2026-03-20 03:04:54.462 | INFO     | __main__:main:450 -   recovery_steps                           10
+2026-03-20 03:04:54.462 | INFO     | __main__:main:450 -   save_dir                                 checkpoints/qwen2moe-qwen2-1B-2026-03-20-03-04-50
+2026-03-20 03:04:54.462 | INFO     | __main__:main:450 -   save_every                               1000000
+2026-03-20 03:04:54.463 | INFO     | __main__:main:450 -   continue_from                            None
+2026-03-20 03:04:54.463 | INFO     | __main__:main:450 -   keep_only_last_model                     False
+2026-03-20 03:04:54.463 | INFO     | __main__:main:450 -   eval_every                               1000
+2026-03-20 03:04:54.463 | INFO     | __main__:main:450 -   wandb_project_name                       qwen2moe_pretraining
+2026-03-20 03:04:54.463 | INFO     | __main__:main:450 -   model_name                               qwen2moe_1b_adam_baseline
+2026-03-20 03:04:54.464 | INFO     | __main__:main:450 -   tags                                     None
+2026-03-20 03:04:54.464 | INFO     | __main__:main:450 -   rl_agent_lr                              0.0003
+2026-03-20 03:04:54.464 | INFO     | __main__:main:450 -   rl_history_len                           5
+2026-03-20 03:04:54.464 | INFO     | __main__:main:450 -   rl_stats_window                          20
+2026-03-20 03:04:54.464 | INFO     | __main__:main:450 -   rl_agent_save_dir                        rl_checkpoints
+2026-03-20 03:04:54.464 | INFO     | __main__:main:450 -   rl_agent_load_path                       None
+2026-03-20 03:04:54.464 | INFO     | __main__:main:450 -   rl_epoch                                 1
+2026-03-20 03:04:54.465 | INFO     | __main__:main:450 -   rl_mode                                  train
+2026-03-20 03:04:54.465 | INFO     | __main__:main:450 -   action_scale                             1.0
+2026-03-20 03:04:54.465 | INFO     | __main__:main:450 -   rl_round                                 1
+2026-03-20 03:04:54.465 | INFO     | __main__:main:450 -   local_rank                               0
+2026-03-20 03:04:54.465 | INFO     | __main__:main:451 - ****************************************
+2026-03-20 03:04:54.465 | INFO     | __main__:main:455 - Using HuggingFace online Pile dataset (monology/pile-uncopyrighted)
+2026-03-20 03:04:58.360 | INFO     | __main__:main:469 - Shuffling dataset with seed 42
+2026-03-20 03:04:58.455 | INFO     | __main__:main:503 - Building Qwen2Moe model: qwen2-1B (experts=32, top-k=4)
+2026-03-20 03:05:09.843 | INFO     | __main__:main:508 - Total params: 1040.49M
+wandb: WARNING Saving files without folders. If you want to preserve subdirectories pass base_path to wandb.save, i.e. wandb.save("/mnt/folder/file.h5", base_path="/mnt")
+Update steps:   0%|                                  | 0/100000 [00:00<?, ?it/s]2026-03-20 03:05:11.877 | INFO     | __main__:main:648 - 
+Qwen2MoeForCausalLM(
+  (model): Qwen2MoeModel(
+    (embed_tokens): Embedding(32000, 768, padding_idx=31999)
+    (layers): ModuleList(
+      (0-14): 15 x Qwen2MoeDecoderLayer(
+        (self_attn): Qwen2MoeSdpaAttention(
+          (q_proj): Linear(in_features=768, out_features=768, bias=True)
+          (k_proj): Linear(in_features=768, out_features=768, bias=True)
+          (v_proj): Linear(in_features=768, out_features=768, bias=True)
+          (o_proj): Linear(in_features=768, out_features=768, bias=False)
+          (rotary_emb): Qwen2MoeRotaryEmbedding()
+        )
+        (mlp): Qwen2MoeSparseMoeBlock(
+          (gate): Linear(in_features=768, out_features=32, bias=False)
+          (experts): ModuleList(
+            (0-31): 32 x Qwen2MoeMLP(
+              (gate_proj): Linear(in_features=768, out_features=768, bias=False)
+              (up_proj): Linear(in_features=768, out_features=768, bias=False)
+              (down_proj): Linear(in_features=768, out_features=768, bias=False)
+              (act_fn): SiLU()
+            )
+          )
+          (shared_expert): Qwen2MoeMLP(
+            (gate_proj): Linear(in_features=768, out_features=3072, bias=False)
+            (up_proj): Linear(in_features=768, out_features=3072, bias=False)
+            (down_proj): Linear(in_features=3072, out_features=768, bias=False)
+            (act_fn): SiLU()
+          )
+          (shared_expert_gate): Linear(in_features=768, out_features=1, bias=False)
+        )
+        (input_layernorm): Qwen2MoeRMSNorm((768,), eps=1e-06)
+        (post_attention_layernorm): Qwen2MoeRMSNorm((768,), eps=1e-06)
+      )
+    )
+    (norm): Qwen2MoeRMSNorm((768,), eps=1e-06)
+    (rotary_emb): Qwen2MoeRotaryEmbedding()
+  )
+  (lm_head): Linear(in_features=768, out_features=32000, bias=False)
+)
+
+2026-03-20 03:05:11.881 | INFO     | __main__:main:649 - Trainable params: 1040.49M
+2026-03-20 03:05:11.882 | INFO     | __main__:main:651 - Saving to checkpoints/qwen2moe-qwen2-1B-2026-03-20-03-04-50 every 1000000 update steps
+2026-03-20 03:05:11.882 | INFO     | __main__:main:704 - Peak memory before training loop: 4.26 GB
+[rank3]: Traceback (most recent call last):
+[rank3]:   File "/home/sql/PEFT/torchrun_main_DDP_qwen2moe.py", line 938, in <module>
+[rank3]:     main(args)
+[rank3]:   File "/home/sql/PEFT/torchrun_main_DDP_qwen2moe.py", line 726, in main
+[rank3]:     outputs = model(**batch, labels=labels, output_router_logits=True)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/parallel/distributed.py", line 1643, in forward
+[rank3]:     else self._run_ddp_forward(*inputs, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/parallel/distributed.py", line 1459, in _run_ddp_forward
+[rank3]:     return self.module(*inputs, **kwargs)  # type: ignore[index]
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/utils/generic.py", line 965, in wrapper
+[rank3]:     output = func(self, *args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/utils/deprecation.py", line 172, in wrapped_func
+[rank3]:     return func(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/models/qwen2_moe/modeling_qwen2_moe.py", line 1280, in forward
+[rank3]:     outputs: MoeModelOutputWithPast = self.model(
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/utils/generic.py", line 965, in wrapper
+[rank3]:     output = func(self, *args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/models/qwen2_moe/modeling_qwen2_moe.py", line 988, in forward
+[rank3]:     layer_outputs = decoder_layer(
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/models/qwen2_moe/modeling_qwen2_moe.py", line 718, in forward
+[rank3]:     hidden_states = self.mlp(hidden_states)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/models/qwen2_moe/modeling_qwen2_moe.py", line 633, in forward
+[rank3]:     shared_expert_output = self.shared_expert(hidden_states)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/models/qwen2_moe/modeling_qwen2_moe.py", line 253, in forward
+[rank3]:     return self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank3]:     return self._call_impl(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank3]:     return forward_call(*args, **kwargs)
+[rank3]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/linear.py", line 125, in forward
+[rank3]:     return F.linear(input, self.weight, self.bias)
+[rank3]: torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 96.00 MiB. GPU 3 has a total capacity of 23.65 GiB of which 49.81 MiB is free. Including non-PyTorch memory, this process has 23.59 GiB memory in use. Of the allocated memory 22.97 GiB is allocated by PyTorch, and 48.47 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/home/sql/PEFT/torchrun_main_DDP_qwen2moe.py", line 938, in <module>
+[rank1]:     main(args)
+[rank1]:   File "/home/sql/PEFT/torchrun_main_DDP_qwen2moe.py", line 726, in main
+[rank1]:     outputs = model(**batch, labels=labels, output_router_logits=True)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/parallel/distributed.py", line 1643, in forward
+[rank1]:     else self._run_ddp_forward(*inputs, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/parallel/distributed.py", line 1459, in _run_ddp_forward
+[rank1]:     return self.module(*inputs, **kwargs)  # type: ignore[index]
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/utils/generic.py", line 965, in wrapper
+[rank1]:     output = func(self, *args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/utils/deprecation.py", line 172, in wrapped_func
+[rank1]:     return func(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/models/qwen2_moe/modeling_qwen2_moe.py", line 1280, in forward
+[rank1]:     outputs: MoeModelOutputWithPast = self.model(
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/utils/generic.py", line 965, in wrapper
+[rank1]:     output = func(self, *args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/models/qwen2_moe/modeling_qwen2_moe.py", line 988, in forward
+[rank1]:     layer_outputs = decoder_layer(
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/models/qwen2_moe/modeling_qwen2_moe.py", line 718, in forward
+[rank1]:     hidden_states = self.mlp(hidden_states)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/models/qwen2_moe/modeling_qwen2_moe.py", line 633, in forward
+[rank1]:     shared_expert_output = self.shared_expert(hidden_states)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/transformers/models/qwen2_moe/modeling_qwen2_moe.py", line 253, in forward
+[rank1]:     return self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/nn/modules/linear.py", line 125, in forward
+[rank1]:     return F.linear(input, self.weight, self.bias)
+[rank1]: torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 96.00 MiB. GPU 1 has a total capacity of 23.65 GiB of which 83.81 MiB is free. Including non-PyTorch memory, this process has 23.56 GiB memory in use. Of the allocated memory 22.97 GiB is allocated by PyTorch, and 15.30 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+W0320 03:06:34.611000 1271877 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1272104 closing signal SIGTERM
+W0320 03:06:34.611000 1271877 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1272105 closing signal SIGTERM
+W0320 03:06:34.613000 1271877 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1272106 closing signal SIGTERM
+W0320 03:06:34.613000 1271877 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1272108 closing signal SIGTERM
+W0320 03:06:34.614000 1271877 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1272109 closing signal SIGTERM
+W0320 03:06:34.614000 1271877 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1272110 closing signal SIGTERM
+W0320 03:06:34.615000 1271877 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1272111 closing signal SIGTERM
+E0320 03:06:35.531000 1271877 site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 3 (pid: 1272107) of binary: /opt/miniconda3/envs/moe/bin/python3.10
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/moe/bin/torchrun", line 7, in <module>
+    sys.exit(main())
+  File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+  File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/distributed/run.py", line 919, in main
+    run(args)
+  File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/distributed/run.py", line 910, in run
+    elastic_launch(
+  File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/opt/miniconda3/envs/moe/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+torchrun_main_DDP_qwen2moe.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-03-20_03:06:34
+  host      : ubuntu
+  rank      : 3 (local_rank: 3)
+  exitcode  : 1 (pid: 1272107)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
