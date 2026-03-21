@@ -227,11 +227,11 @@ class PPOAgent:
                 state_t, deterministic=False, shared_noise=True, squash_actions=self.squash_actions
             )
         return (pre_tanh.cpu().numpy() if pre_tanh is not None else None), action.cpu().numpy(), action_logprob.cpu().numpy()
-
-    def logprob_old(self, state, action):
+    #action_input 是 pre_tanh 还是 action 取决于是否开启 squash_actions
+    def logprob_old(self, state, action_input):
         with torch.no_grad():
             s = torch.tensor(state, dtype=torch.float32, device=self.device)
-            a = torch.tensor(action, dtype=torch.float32, device=self.device)
+            a = torch.tensor(action_input, dtype=torch.float32, device=self.device)
             logprobs, _, _ = self.policy_old.evaluate(s, a, squash_actions=self.squash_actions)
         return logprobs.detach().cpu().numpy()
 
