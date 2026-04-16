@@ -1221,6 +1221,24 @@ def main(args):
                     },
                     step = update_step,
                 )
+
+                # For RL_AdamW_Wrapper, also surface reward decomposition to verify local reward is active.
+                if isinstance(optimizer, RL_AdamW_Wrapper):
+                    rl_stats = getattr(optimizer, "last_debug_stats", None)
+                    if rl_stats:
+                        wandb.log(
+                            {
+                                "rl_reward/global": float(rl_stats.get("r_global", 0.0)),
+                                "rl_reward/local_mean": float(rl_stats.get("r_local_mean", 0.0)),
+                                "rl_reward/local_trust_mean": float(rl_stats.get("r_trust_mean", 0.0)),
+                                "rl_reward/local_spike_mean": float(rl_stats.get("r_spike_mean", 0.0)),
+                                "rl_reward/local_osc_mean": float(rl_stats.get("r_osc_mean", 0.0)),
+                                "rl_reward/total_mean": float(rl_stats.get("reward_mean", 0.0)),
+                                "rl_reward/total_p95": float(rl_stats.get("reward_p95", 0.0)),
+                                "rl_reward/total_min": float(rl_stats.get("reward_min", 0.0)),
+                            },
+                            step=update_step,
+                        )
                 
             
  

@@ -8,7 +8,7 @@
 python -m wandb login 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
 # 设置环境变量
 export CUDA_VISIBLE_DEVICES=0,1
-export WANDB_PROJECT="60M_model" 
+export WANDB_PROJECT="60M_llama_local_reward_debug" 
 
 # ================= 配置区域 =================
 MODEL_CONFIG="configs/llama_60m.json"
@@ -25,7 +25,7 @@ WEIGHT_DECAY=0.1
 DTYPE="bfloat16"
 
 # 保存与评估频率
-SAVE_EVERY=1000
+SAVE_EVERY=2000
 EVAL_EVERY=1000
 
 # RL 相关配置
@@ -34,11 +34,11 @@ RL_HISTORY_LEN=5
 RL_SAVE_BASE_DIR="checkpoints/rl_agents_meta_run"
 RUN_NAME_BASE="60M_RL_"
 MODE='train'
-ROUND=256
+ROUND=0
 RL_BASE_SCHEDULER="cosine"
 
 # Meta-Training 配置
-TOTAL_RL_EPOCHS=1
+TOTAL_RL_EPOCHS=8
 BASE_SEED=128
 
 # [修改] Action Scale 课程学习配置 - 限制最大值为 2.0

@@ -31,6 +31,7 @@ class RL_AdamW_Wrapper(Optimizer):
         action_scale=1.0,
         round=0,
         log_interval=500,
+        local_reward_cfg=None,
         **optimizer_kwargs
     ):
         # --- 1. 强制重构 Param Groups ---
@@ -90,6 +91,17 @@ class RL_AdamW_Wrapper(Optimizer):
         self.ema_long = None
         self.grad_norm_avg = 0.0
         self.gss_beta = 0.99
+
+        # local reward defaults; set lambda_* = 0.0 to recover global-only reward behavior
+        self.local_reward_cfg = {
+            'tau_tr': 0.01,
+            'delta_sp': 0.5,
+            'lambda_tr': 0.1,
+            'lambda_sp': 0.1,
+            'lambda_osc': 0.05,
+        }
+        if isinstance(local_reward_cfg, dict):
+            self.local_reward_cfg.update(local_reward_cfg)
 
         # 保持默认行为尽量贴近 old
         self.prev_actions = np.zeros((self.num_params, self.action_dim), dtype=np.float64)
@@ -258,8 +270,18 @@ class RL_AdamW_Wrapper(Optimizer):
         print(f"[RL STATS] step={self.current_step} ")
         if reward is None:
             print(f"loss_used={loss_val_used:.6f} reward=NA ")
+        elif np.isscalar(reward):
+            print(f"loss_used={loss_val_used:.6f} reward={float(reward):.4f} ")
         else:
-            print(f"loss_used={loss_val_used:.6f} reward={reward:.4f} ")
+            reward_arr = np.asarray(reward, dtype=np.float32)
+            print(
+                "loss_used={:.6f} reward(mean/p95/min)=({:.4f},{:.4f},{:.4f}) ".format(
+                    loss_val_used,
+                    float(np.mean(reward_arr)),
+                    float(np.percentile(reward_arr, 95)),
+                    float(np.min(reward_arr)),
+                )
+            )
         print(f"base_lr={base_lr:.3e} avg_lr={avg_lr:.3e} ")
         print(f"lr(p50/p95/p99)=({lr_p50:.3e},{lr_p95:.3e},{lr_p99:.3e}) ")
         print(f"lr_scale(p50/p95/p99)=({lrs_p50:.3f},{lrs_p95:.3f},{lrs_p99:.3f}) ")
@@ -270,6 +292,15 @@ class RL_AdamW_Wrapper(Optimizer):
         print("logp0", logprobs[:5])
         print("base_lr", base_lr, "scale", current_scale)
         print("avg_lr", float(np.mean([g['lr'] for g in self.param_groups])))
+
+        if self.last_debug_stats:
+            print(
+                "local_penalty(mean trust/spike/osc)=({:.4f},{:.4f},{:.4f})".format(
+                    float(self.last_debug_stats.get('r_trust_mean', 0.0)),
+                    float(self.last_debug_stats.get('r_spike_mean', 0.0)),
+                    float(self.last_debug_stats.get('r_osc_mean', 0.0)),
+                )
+            )
 
         if logstd is not None:
             print(f"actor_logstd={logstd}")
@@ -437,6 +468,8 @@ class RL_AdamW_Wrapper(Optimizer):
 
         # --- B. Local Features ---
         local_feats_list = []
+        trust_ratio_vec = np.zeros((self.num_params,), dtype=np.float32)
+        delta_gn_vec = np.zeros((self.num_params,), dtype=np.float32)
         total_norm_sq = 0.0
 
         for i, p in enumerate(self.all_params):
@@ -469,6 +502,7 @@ class RL_AdamW_Wrapper(Optimizer):
 
             trust_ratio = g_norm / (p_norm + 1e-8)
             log_trust_ratio = np.log10(trust_ratio + 1e-10)
+            trust_ratio_vec[i] = np.float32(trust_ratio)
 
             adam_snr = 0.0
             if 'exp_avg' in state and 'exp_avg_sq' in state:
@@ -480,6 +514,7 @@ class RL_AdamW_Wrapper(Optimizer):
             prev_gn = self.prev_grad_norms[i]
             delta_gn = log_gn - prev_gn
             self.prev_grad_norms[i] = log_gn
+            delta_gn_vec[i] = np.float32(delta_gn)
 
             local_feats_list.append(np.array([
                 log_lr,
@@ -585,7 +620,7 @@ class RL_AdamW_Wrapper(Optimizer):
             logprob_input = pre_tanh if self._flag_enabled(256) else actions
             logprobs = self.agent.logprob_old(state_batch, logprob_input).astype(np.float32, copy=False)
 
-        self.prev_actions = actions
+        prev_actions_lr = self.prev_actions[:, 0].astype(np.float32, copy=True)
 
         # --- D. 应用动作 ---
         if self._flag_enabled(1024):
@@ -649,10 +684,10 @@ class RL_AdamW_Wrapper(Optimizer):
                 if grad_ratio > 1.5:
                     p_stability = (grad_ratio - 1.5) * 5.0
 
-                reward = float(r_perf + r_trend - p_stability)
+                r_global = float(r_perf + r_trend - p_stability)
 
                 if grad_ratio > 3.0:
-                    reward -= 20.0
+                    r_global -= 20.0
 
                 spike_penalty = 0.0
                 if self.ema_long is not None:
@@ -662,7 +697,34 @@ class RL_AdamW_Wrapper(Optimizer):
                         abort_training = True
                         if self.rank == 0:
                             print(f"\n[RL WARNING] Loss Spike Detected! Ratio: {spike_ratio:.2f}. Aborting Epoch.")
-                reward += spike_penalty
+                r_global += spike_penalty
+
+                tau_tr = float(self.local_reward_cfg['tau_tr'])
+                delta_sp = float(self.local_reward_cfg['delta_sp'])
+                lambda_tr = float(self.local_reward_cfg['lambda_tr'])
+                lambda_sp = float(self.local_reward_cfg['lambda_sp'])
+                lambda_osc = float(self.local_reward_cfg['lambda_osc'])
+
+                trust_excess = np.maximum(0.0, trust_ratio_vec - tau_tr)
+                delta_excess = np.maximum(0.0, delta_gn_vec - delta_sp)
+                action_osc = np.abs(actions[:, 0] - prev_actions_lr)
+
+                r_trust = -lambda_tr * trust_excess
+                r_spike = -lambda_sp * np.square(delta_excess)
+                r_osc = -lambda_osc * action_osc
+                reward = (r_global + r_trust + r_spike + r_osc).astype(np.float32, copy=False)
+                r_local = r_trust + r_spike + r_osc
+
+                self.last_debug_stats = {
+                    'r_global': float(r_global),
+                    'r_local_mean': float(np.mean(r_local)),
+                    'r_trust_mean': float(np.mean(r_trust)),
+                    'r_spike_mean': float(np.mean(r_spike)),
+                    'r_osc_mean': float(np.mean(r_osc)),
+                    'reward_mean': float(np.mean(reward)),
+                    'reward_p95': float(np.percentile(reward, 95)),
+                    'reward_min': float(np.min(reward)),
+                }
 
                 should_store = True
                 if rank0_only_agent and self.rank != 0:
@@ -735,6 +797,8 @@ class RL_AdamW_Wrapper(Optimizer):
                     logprobs=logprobs,
                     pre_tanh=pre_tanh,
                 )
+
+        self.prev_actions = actions
 
         self.last_loss = float(loss_val_used)
         self.current_step += 1
