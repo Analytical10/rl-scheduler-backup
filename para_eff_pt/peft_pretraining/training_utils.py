@@ -6,81 +6,6 @@ from torch.optim.lr_scheduler import LambdaLR
 import transformers
 
 
-def get_scheculer(
-    optimizer,
-    *,
-    scheduler_type,
-    num_training_steps,
-    warmup_steps,
-    min_lr_ratio,
-    cycle_length=None,
-    restart_warmup_steps=None,
-    adjust_step=0,
-    last_epoch=-1,
-    recovery_steps=10,
-    
-):
-    if adjust_step != 0 and scheduler_type != "cosine_restarts":
-        raise ValueError("adjust_step is only supported for cosine_restarts scheduler")
-    
-
-    if cycle_length is not None and cycle_length > 0:
-        if cycle_length > num_training_steps or num_training_steps % cycle_length != 0:
-            print(f"Warning: num_training_steps ({num_training_steps}) is not divisible by cycle_length ({cycle_length}). "
-                  f"Setting cycle_length to num_training_steps to avoid restarts.")
-            cycle_length = num_training_steps
-    
-
-    if scheduler_type == "linear":
-        return transformers.get_linear_schedule_with_warmup(
-            optimizer,
-            num_warmup_steps=warmup_steps,
-            num_training_steps=num_training_steps,
-            last_epoch=last_epoch,
-        )
-    if scheduler_type == "cosine":
-        return get_cyclical_cosine_schedule_with_min_lr(
-            optimizer,
-            num_warmup_steps=warmup_steps,
-            num_training_steps=num_training_steps,
-            cycle_length=cycle_length,
-            min_lr_ratio=min_lr_ratio,
-            last_epoch=last_epoch,
-        )
-    if scheduler_type == "cosine_restarts":
-        assert restart_warmup_steps is not None, "restart_warmup_steps must be specified for cosine_restarts scheduler"
-        return get_cosine_schedule_with_multiple_warmups(
-            optimizer,
-            num_training_steps=num_training_steps,
-            first_warmup_steps=warmup_steps,
-            restart_warmup_steps=restart_warmup_steps,
-            restart_every=cycle_length,
-            min_lr_ratio=min_lr_ratio,
-            last_epoch=last_epoch,
-            adjust_step=adjust_step,
-        )
-        
-    if scheduler_type == "cosine_quick_recovery":
-        return get_cosine_schedule_with_quick_recovery(
-            optimizer,
-            num_training_steps=num_training_steps,
-            first_warmup_steps=warmup_steps,
-            restart_every=cycle_length,
-            recovery_steps=recovery_steps, # Default value
-            min_lr_ratio=min_lr_ratio,
-            last_epoch=last_epoch,
-        )
-
-    if scheduler_type == "wsd":
-        return get_wsd_scheduler(
-            optimizer,
-            num_warmup_steps=warmup_steps,
-            num_training_steps=num_training_steps,
-            min_lr_ratio=min_lr_ratio,
-            last_epoch=last_epoch,
-        )
-
-    raise NotImplementedError(f"Scheduler {scheduler_type} is not implemented")
 
 
 def get_cyclical_cosine_schedule_with_min_lr(optimizer, num_warmup_steps, num_training_steps, cycle_length, min_lr_ratio=0.1, last_epoch=-1):
@@ -172,6 +97,54 @@ def magnitude_pruning(tensor, prune_ratio):
     mask = tensor_magnitude > threshold
     tensor = tensor * mask.to(dtype=tensor.dtype)
     return tensor
+
+def get_inverse_sqrt_scheduler(optimizer, num_warmup_steps, min_lr_ratio=0.01, last_epoch=-1):
+    def lr_lambda(current_step):
+        if current_step < num_warmup_steps:
+            # 预热阶段：线性增长
+            return float(current_step) / float(max(1, num_warmup_steps))
+        # 衰减阶段：从预热结束点开始按逆平方根下降
+        # 公式：(warmup_steps^0.5) / (current_step^0.5)
+        decay =  math.pow(num_warmup_steps / current_step, 0.5)
+        return max(min_lr_ratio, decay)  # 确保学习率不会低于 min_lr_ratio
+    
+    return LambdaLR(optimizer, lr_lambda, last_epoch)
+
+def get_onecycle_scheduler(optimizer, num_training_steps, warmup_steps, min_lr_ratio, last_epoch=-1):
+    """
+    实现 1cycle 策略：
+    1. 升压阶段：从初始学习率线性增加到峰值学习率 [cite: 111]。
+    2. 降压阶段：从峰值线性降低回初始水平 [cite: 111]。
+    3. 尾巴阶段：降低到极低学习率完成收敛 。
+    """
+    # 按照论文建议，周期应略小于总步数，假设周期占 90% 
+    cycle_steps = int(num_training_steps * 0.9)
+    # 升压阶段长度（warmup_steps）由用户脚本指定
+    up_steps = warmup_steps
+    # 降压阶段通常与升压对称
+    down_steps = warmup_steps
+    
+    if up_steps + down_steps > cycle_steps:
+        up_steps = down_steps = cycle_steps // 2
+
+    def lr_lambda(current_step):
+        if current_step < up_steps:
+            # 阶段 1: 线性增长到 1.0 (max_lr)
+            progress = float(current_step) / float(max(1, up_steps))
+            return min_lr_ratio + (1.0 - min_lr_ratio) * progress
+        elif current_step < up_steps + down_steps:
+            # 阶段 2: 线性下降回 min_lr_ratio
+            progress = float(current_step - up_steps) / float(max(1, down_steps))
+            return max(min_lr_ratio, 1.0 - progress * (1.0 - min_lr_ratio))
+        else:
+            # 阶段 3: 尾巴阶段，降至极低值（例如起始值的 1/100） 
+            remaining_steps = num_training_steps - (up_steps + down_steps)
+            if remaining_steps <= 0: return min_lr_ratio
+            progress = float(current_step - (up_steps + down_steps)) / float(max(1, remaining_steps))
+            final_ratio = min_lr_ratio / 100.0
+            return max(final_ratio, min_lr_ratio - progress * (min_lr_ratio - final_ratio))
+    
+    return LambdaLR(optimizer, lr_lambda, last_epoch)
 
 
 def _get_cyclical_cosine_schedule_with_min_lr_lambda(current_step, *, num_warmup_steps, cycle_length, min_lr_ratio):
@@ -354,3 +327,97 @@ def max_train_tokens_to_number(max_train_tokens):
         return int(max_train_tokens.rstrip("B")) * 1_000_000_000
     else:
         return int(max_train_tokens)
+
+# get_sheduler 函数写在后面
+def get_scheculer(
+    optimizer,
+    *,
+    scheduler_type,
+    num_training_steps,
+    warmup_steps,
+    min_lr_ratio,
+    cycle_length=None,
+    restart_warmup_steps=None,
+    adjust_step=0,
+    last_epoch=-1,
+    recovery_steps=10,
+    
+):
+    if adjust_step != 0 and scheduler_type != "cosine_restarts":
+        raise ValueError("adjust_step is only supported for cosine_restarts scheduler")
+    
+
+    if cycle_length is not None and cycle_length > 0:
+        if cycle_length > num_training_steps or num_training_steps % cycle_length != 0:
+            print(f"Warning: num_training_steps ({num_training_steps}) is not divisible by cycle_length ({cycle_length}). "
+                  f"Setting cycle_length to num_training_steps to avoid restarts.")
+            cycle_length = num_training_steps
+    
+
+    if scheduler_type == "linear":
+        return transformers.get_linear_schedule_with_warmup(
+            optimizer,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=num_training_steps,
+            last_epoch=last_epoch,
+        )
+    if scheduler_type == "cosine":
+        return get_cyclical_cosine_schedule_with_min_lr(
+            optimizer,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=num_training_steps,
+            cycle_length=cycle_length,
+            min_lr_ratio=min_lr_ratio,
+            last_epoch=last_epoch,
+        )
+    if scheduler_type == "cosine_restarts":
+        assert restart_warmup_steps is not None, "restart_warmup_steps must be specified for cosine_restarts scheduler"
+        return get_cosine_schedule_with_multiple_warmups(
+            optimizer,
+            num_training_steps=num_training_steps,
+            first_warmup_steps=warmup_steps,
+            restart_warmup_steps=restart_warmup_steps,
+            restart_every=cycle_length,
+            min_lr_ratio=min_lr_ratio,
+            last_epoch=last_epoch,
+            adjust_step=adjust_step,
+        )
+        
+    if scheduler_type == "cosine_quick_recovery":
+        return get_cosine_schedule_with_quick_recovery(
+            optimizer,
+            num_training_steps=num_training_steps,
+            first_warmup_steps=warmup_steps,
+            restart_every=cycle_length,
+            recovery_steps=recovery_steps, # Default value
+            min_lr_ratio=min_lr_ratio,
+            last_epoch=last_epoch,
+        )
+
+    if scheduler_type == "wsd":
+        return get_wsd_scheduler(
+            optimizer,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=num_training_steps,
+            min_lr_ratio=min_lr_ratio,
+            last_epoch=last_epoch,
+        )
+    
+    if scheduler_type == "inverse_sqrt":
+        return get_inverse_sqrt_scheduler(
+            optimizer,
+            num_warmup_steps=warmup_steps,
+            min_lr_ratio=min_lr_ratio,
+            last_epoch=last_epoch,
+        )
+
+    if scheduler_type == "onecycle":
+        return get_onecycle_scheduler(
+            optimizer,
+            num_training_steps=num_training_steps,
+            warmup_steps=warmup_steps,
+            min_lr_ratio=min_lr_ratio,
+            last_epoch=last_epoch,
+        )
+
+    raise NotImplementedError(f"Scheduler {scheduler_type} is not implemented")
