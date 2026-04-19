@@ -298,6 +298,11 @@ def parse_args(args):
     parser.add_argument("--action_scale", type=float, default=1.0, help="Scaling factor for actions output by the RL agent")
     parser.add_argument("--rl_round", type=int, default=1, help="Experiment round identifier for RL optimizer")
     parser.add_argument("--rl_base_scheduler", type=str, default="cosine", choices=[ "cosine","wsd"], help="Base scheduler type for RL optimizer")
+    parser.add_argument("--rl_local_tau_tr", type=float, default=0.01, help="Trust-ratio threshold for local reward")
+    parser.add_argument("--rl_local_delta_sp", type=float, default=0.5, help="Gradient-spike threshold for local reward")
+    parser.add_argument("--rl_local_lambda_tr", type=float, default=0.1, help="Trust-ratio penalty weight for local reward")
+    parser.add_argument("--rl_local_lambda_sp", type=float, default=0.1, help="Gradient-spike penalty weight for local reward")
+    parser.add_argument("--rl_local_lambda_osc", type=float, default=0.05, help="Action-oscillation penalty weight for local reward")
     # ==========================================
 
     ## R_adamw

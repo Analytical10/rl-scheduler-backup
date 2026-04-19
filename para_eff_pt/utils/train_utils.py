@@ -525,6 +525,13 @@ def build_optimizer(model, trainable_params, args):
             stats_window=args.rl_stats_window,
             rl_agent_lr=args.rl_agent_lr,
             round=args.rl_round,
+            local_reward_cfg={
+                'tau_tr': args.rl_local_tau_tr,
+                'delta_sp': args.rl_local_delta_sp,
+                'lambda_tr': args.rl_local_lambda_tr,
+                'lambda_sp': args.rl_local_lambda_sp,
+                'lambda_osc': args.rl_local_lambda_osc,
+            },
             # base_LRS=args.rl_base_scheduler,
             
         )

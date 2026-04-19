@@ -37,6 +37,17 @@ MODE='train'
 ROUND=0
 RL_BASE_SCHEDULER="cosine"
 
+# Stage-1 local reward tuning knobs (A/B/C/D sweep friendly)
+# A baseline: 0.01 / 0.5 / 0.1 / 0.1 / 0.05
+# B lower osc: 0.01 / 0.5 / 0.1 / 0.1 / 0.01
+# C boost trust+spike: 0.01 / 0.5 / 1.0 / 1.0 / 0.05
+# D boost + tighter thresholds: 0.003 / 0.2 / 1.0 / 1.0 / 0.01
+RL_LOCAL_TAU_TR=0.003
+RL_LOCAL_DELTA_SP=0.2
+RL_LOCAL_LAMBDA_TR=10
+RL_LOCAL_LAMBDA_SP=10
+RL_LOCAL_LAMBDA_OSC=0.1
+
 # Meta-Training 配置
 TOTAL_RL_EPOCHS=8
 BASE_SEED=128
@@ -101,6 +112,7 @@ else:
 
     echo "Using Seed: $CURRENT_SEED"
     echo "Curriculum Action Scale: $CURRENT_ACTION_SCALE (Range: $MIN_ACTION_SCALE -> $MAX_ACTION_SCALE)"
+    echo "LocalReward cfg: tau_tr=$RL_LOCAL_TAU_TR delta_sp=$RL_LOCAL_DELTA_SP lambda_tr=$RL_LOCAL_LAMBDA_TR lambda_sp=$RL_LOCAL_LAMBDA_SP lambda_osc=$RL_LOCAL_LAMBDA_OSC"
 
     # 3. 确定 Agent 加载路径
     if [ $epoch -eq 1 ]; then
@@ -169,6 +181,11 @@ else:
             --action_scale $CURRENT_ACTION_SCALE \
             --rl_round $ROUND \
             --rl_base_scheduler $RL_BASE_SCHEDULER \
+            --rl_local_tau_tr $RL_LOCAL_TAU_TR \
+            --rl_local_delta_sp $RL_LOCAL_DELTA_SP \
+            --rl_local_lambda_tr $RL_LOCAL_LAMBDA_TR \
+            --rl_local_lambda_sp $RL_LOCAL_LAMBDA_SP \
+            --rl_local_lambda_osc $RL_LOCAL_LAMBDA_OSC \
             $AGENT_LOAD_ARG
 
         # 检查退出码
