@@ -298,6 +298,12 @@ def parse_args(args):
     parser.add_argument("--action_scale", type=float, default=1.0, help="Scaling factor for actions output by the RL agent")
     parser.add_argument("--rl_round", type=int, default=1, help="Experiment round identifier for RL optimizer")
     parser.add_argument("--rl_base_scheduler", type=str, default="cosine", choices=[ "cosine","wsd"], help="Base scheduler type for RL optimizer")
+    parser.add_argument("--rl_local_reward_ema_gamma", type=float, default=0.9, help="EMA gamma for local reward smoothing")
+    parser.add_argument("--rl_alpha_start", type=float, default=0.9, help="Initial alpha for local reward weight")
+    parser.add_argument("--rl_alpha_end", type=float, default=0.3, help="Final alpha for local reward weight")
+    parser.add_argument("--rl_beta_start", type=float, default=0.1, help="Initial beta for global reward weight")
+    parser.add_argument("--rl_beta_end", type=float, default=0.7, help="Final beta for global reward weight")
+    parser.add_argument("--rl_reward_clip", type=float, default=20.0, help="Clip range for final reward vector; <=0 disables clipping")
     # ==========================================
 
     ## R_adamw

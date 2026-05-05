@@ -525,6 +525,12 @@ def build_optimizer(model, trainable_params, args):
             stats_window=args.rl_stats_window,
             rl_agent_lr=args.rl_agent_lr,
             round=args.rl_round,
+            local_reward_ema_gamma=args.rl_local_reward_ema_gamma,
+            alpha_start=args.rl_alpha_start,
+            alpha_end=args.rl_alpha_end,
+            beta_start=args.rl_beta_start,
+            beta_end=args.rl_beta_end,
+            reward_clip=(None if args.rl_reward_clip <= 0 else args.rl_reward_clip),
             # base_LRS=args.rl_base_scheduler,
             
         )

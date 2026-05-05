@@ -253,15 +253,30 @@ class PPOAgent:
             s_list.append(s)
             a_list.append(a)
             lp_list.append(lp)
-            r_list.append(np.full((N,), r))
+
+            # Backward compatible: support scalar reward or per-group reward vector.
+            r_np = np.asarray(r, dtype=np.float32)
+            if r_np.ndim == 0:
+                r_vec = np.full((N,), float(r_np), dtype=np.float32)
+            else:
+                r_vec = r_np.reshape(-1)
+                if r_vec.shape[0] != N:
+                    raise ValueError(f"Reward vector length mismatch: got {r_vec.shape[0]}, expected {N}")
+            r_list.append(r_vec)
 
         states = torch.tensor(np.concatenate(s_list), dtype=torch.float32).to(self.device)
         actions = torch.tensor(np.concatenate(a_list), dtype=torch.float32).to(self.device)
         old_logprobs = torch.tensor(np.concatenate(lp_list), dtype=torch.float32).to(self.device)
-        rewards = np.concatenate(r_list)
 
-        returns = torch.tensor(rewards, dtype=torch.float32).to(self.device).view(-1, 1)
-        returns = (returns - returns.mean()) / (returns.std() + 1e-7)
+        # Preserve per-layer credit assignment: normalize each layer across time,
+        # instead of mixing all layers and all samples into one global distribution.
+        # N 是 参数层 数量，T 是 用于更新的步数，对更新步数维度做平均
+        reward_matrix = np.stack(r_list, axis=0).astype(np.float32, copy=False)  # [T, N]
+        reward_mean = reward_matrix.mean(axis=0, keepdims=True)
+        reward_std = reward_matrix.std(axis=0, keepdims=True)
+        reward_matrix = (reward_matrix - reward_mean) / (reward_std + 1e-7)
+
+        returns = torch.tensor(reward_matrix.reshape(-1), dtype=torch.float32).to(self.device).view(-1, 1)
 
         for _ in range(self.K_epochs):
             logprobs, state_values, dist_entropy = self.policy.evaluate(

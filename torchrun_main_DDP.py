@@ -1221,6 +1221,26 @@ def main(args):
                     },
                     step = update_step,
                 )
+
+                if hasattr(optimizer, "last_debug_stats") and isinstance(optimizer.last_debug_stats, dict):
+                    # Keep only core reward diagnostics to avoid WandB clutter.
+                    rl_metric_whitelist = {
+                        "r_global",
+                        "local_reward_ema_mean",
+                        "final_reward_mean",
+                        "alpha",
+                        "beta",
+                        "local_weighted_abs_mean",
+                        "global_weighted_abs",
+                        "local_to_global_weighted_abs_ratio",
+                    }
+                    rl_debug_stats = {
+                        f"rl/{k}": v
+                        for k, v in optimizer.last_debug_stats.items()
+                        if k in rl_metric_whitelist and isinstance(v, (int, float))
+                    }
+                    if len(rl_debug_stats) > 0:
+                        wandb.log(rl_debug_stats, step=update_step)
                 
             
  

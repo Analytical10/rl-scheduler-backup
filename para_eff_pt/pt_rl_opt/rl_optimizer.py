@@ -31,6 +31,12 @@ class RL_AdamW_Wrapper(Optimizer):
         action_scale=1.0,
         round=0,
         log_interval=500,
+        local_reward_ema_gamma=0.9,
+        alpha_start=0.9,
+        alpha_end=0.3,
+        beta_start=0.1,
+        beta_end=0.7,
+        reward_clip=20.0,
         **optimizer_kwargs
     ):
         # --- 1. 强制重构 Param Groups ---
@@ -82,7 +88,9 @@ class RL_AdamW_Wrapper(Optimizer):
         self.local_feat_dim = 9
         # flag512: 去掉 local_feats，只保留 global_feats
         self.feature_dim = self.global_feat_dim + (0 if self._flag_enabled(512) else self.local_feat_dim)
-        self.action_dim = 2
+        
+        # 动作维度固定为 1（仅预测 LR）
+        self.action_dim = 1
 
         self.loss_history = deque(maxlen=stats_window)
         self.drop_history = deque(maxlen=50)
@@ -90,6 +98,13 @@ class RL_AdamW_Wrapper(Optimizer):
         self.ema_long = None
         self.grad_norm_avg = 0.0
         self.gss_beta = 0.99
+        self.local_reward_ema = np.zeros(self.num_params, dtype=np.float64)
+        self.local_reward_ema_gamma = float(local_reward_ema_gamma)
+        self.alpha_start = float(alpha_start)
+        self.alpha_end = float(alpha_end)
+        self.beta_start = float(beta_start)
+        self.beta_end = float(beta_end)
+        self.reward_clip = float(reward_clip) if reward_clip is not None else None
 
         # 保持默认行为尽量贴近 old
         self.prev_actions = np.zeros((self.num_params, self.action_dim), dtype=np.float64)
@@ -126,6 +141,21 @@ class RL_AdamW_Wrapper(Optimizer):
             os.makedirs(self.agent_save_dir)
 
         self.last_debug_stats = {}
+
+    def _vec_summary(self, vec: np.ndarray, prefix: str):
+        v = np.asarray(vec, dtype=np.float64)
+        if v.size == 0:
+            return {}
+        p50, p95, p99 = np.percentile(v, [50, 95, 99]).tolist()
+        return {
+            f"{prefix}_mean": float(np.mean(v)),
+            f"{prefix}_std": float(np.std(v)),
+            f"{prefix}_min": float(np.min(v)),
+            f"{prefix}_max": float(np.max(v)),
+            f"{prefix}_p50": float(p50),
+            f"{prefix}_p95": float(p95),
+            f"{prefix}_p99": float(p99),
+        }
 
     # ---- Optimizer interface passthrough ----
     @property
@@ -182,6 +212,32 @@ class RL_AdamW_Wrapper(Optimizer):
         dist.broadcast(t, src=0)
         return t.cpu().numpy()
 
+    def _ddp_broadcast_vector_from_rank0(self, vec_np: np.ndarray) -> np.ndarray:
+        if not dist.is_initialized():
+            return vec_np
+        if self.rank == 0:
+            t = torch.tensor(vec_np, device=self.device, dtype=torch.float32)
+        else:
+            t = torch.empty((self.num_params,), device=self.device, dtype=torch.float32)
+        dist.broadcast(t, src=0)
+        return t.cpu().numpy().astype(np.float64, copy=False)
+
+    def _reward_mix_weights(self):
+        if self.max_steps <= 0:
+            progress = 1.0
+        else:
+            progress = float(min(1.0, max(0.0, self.current_step / self.max_steps)))
+        alpha = self.alpha_start + (self.alpha_end - self.alpha_start) * progress
+        beta = self.beta_start + (self.beta_end - self.beta_start) * progress
+        return float(alpha), float(beta)
+
+    def _sanitize_reward_vector(self, reward_vec: np.ndarray) -> np.ndarray:
+        r = np.asarray(reward_vec, dtype=np.float64)
+        r = np.nan_to_num(r, nan=0.0, posinf=0.0, neginf=0.0)
+        if self.reward_clip is not None and self.reward_clip > 0:
+            r = np.clip(r, -self.reward_clip, self.reward_clip)
+        return r
+
     def _get_cosine_lr(self):
         step = self.current_step
         if step < self.warmup_steps:
@@ -235,11 +291,14 @@ class RL_AdamW_Wrapper(Optimizer):
         self,
         loss_val_used,
         reward,
+        local_reward_ema,
+        final_reward_vec,
+        alpha,
+        beta,
         base_lr,
         new_lrs,
         lr_scales,
         clip_frac_lr,
-        clip_frac_wd,
         cap_frac,
         current_scale,
         state_batch,
@@ -253,17 +312,28 @@ class RL_AdamW_Wrapper(Optimizer):
         logstd = self.agent.get_actor_logstd() if hasattr(self.agent, "get_actor_logstd") else None
 
         for j in range(min(5, self.num_params)):
-            print(f"    Param {j}: LR_action={actions[j,0]:.4f}, WD_action={actions[j,1]:.4f}")
+            print(f"    Param {j}: LR_action={actions[j,0]:.4f}")
 
         print(f"[RL STATS] step={self.current_step} ")
         if reward is None:
             print(f"loss_used={loss_val_used:.6f} reward=NA ")
         else:
             print(f"loss_used={loss_val_used:.6f} reward={reward:.4f} ")
+        if local_reward_ema is not None:
+            lre_p50, lre_p95, lre_p99 = np.percentile(local_reward_ema, [50, 95, 99]).tolist()
+            print(
+                "local_reward_ema(p50/p95/p99)="
+                f"({lre_p50:.4f},{lre_p95:.4f},{lre_p99:.4f})"
+            )
+        if final_reward_vec is not None:
+            fr_p50, fr_p95, fr_p99 = np.percentile(final_reward_vec, [50, 95, 99]).tolist()
+            print(f"final_reward(p50/p95/p99)=({fr_p50:.4f},{fr_p95:.4f},{fr_p99:.4f})")
+        if alpha is not None and beta is not None:
+            print(f"reward_mix(alpha,beta)=({alpha:.3f},{beta:.3f})")
         print(f"base_lr={base_lr:.3e} avg_lr={avg_lr:.3e} ")
         print(f"lr(p50/p95/p99)=({lr_p50:.3e},{lr_p95:.3e},{lr_p99:.3e}) ")
         print(f"lr_scale(p50/p95/p99)=({lrs_p50:.3f},{lrs_p95:.3f},{lrs_p99:.3f}) ")
-        print(f"clip_frac(lr/wd)=({clip_frac_lr:.3f},{clip_frac_wd:.3f}) ")
+        print(f"clip_frac(lr)={clip_frac_lr:.3f} ")
         print(f"cap_frac={cap_frac:.3f} action_scale={current_scale:.3f}")
         print("state_hash", float(np.mean(state_batch)), float(np.std(state_batch)))
         print("actions0", actions[:5, 0])
@@ -498,8 +568,10 @@ class RL_AdamW_Wrapper(Optimizer):
             global_grad_norm = self._ddp_broadcast_scalar_from_rank0(global_grad_norm)
 
         if self.current_step == 0:
+            grad_norm_baseline = global_grad_norm
             self.grad_norm_avg = global_grad_norm
         else:
+            grad_norm_baseline = float(self.grad_norm_avg)
             self.grad_norm_avg = self.gss_beta * self.grad_norm_avg + (1 - self.gss_beta) * global_grad_norm
 
         global_feats_batch = np.tile(global_feats, (self.num_params, 1))
@@ -600,17 +672,13 @@ class RL_AdamW_Wrapper(Optimizer):
             current_scale = float(self.action_scale)
 
         clip_frac_lr = float(np.mean(np.abs(actions[:, 0]) > 1.0))
-        clip_frac_wd = float(np.mean(np.abs(actions[:, 1]) > 1.0))
 
         if self._flag_enabled(256):
             a_exec_lr = actions[:, 0] * current_scale
-            a_exec_wd = actions[:, 1] * current_scale
         else:
             a_exec_lr = np.clip(actions[:, 0], -1.0, 1.0) * current_scale
-            a_exec_wd = np.clip(actions[:, 1], -1.0, 1.0) * current_scale
 
         lr_scales = np.exp(a_exec_lr)
-        wd_scales = np.exp(a_exec_wd)
 
         capped_count = 0
         new_lrs = np.empty((self.num_params,), dtype=np.float64)
@@ -625,12 +693,56 @@ class RL_AdamW_Wrapper(Optimizer):
             new_lrs[i] = new_lr
 
             if group.get('initial_weight_decay', 0.0) > 0:
-                group['weight_decay'] = group['initial_weight_decay'] * (float(wd_scales[i]) ** 0.35)
+                group['weight_decay'] = group['initial_weight_decay']
 
         cap_frac = float(capped_count / max(1, self.num_params))
 
+        # Base optimizer 真实更新前缓存参数和梯度，用于 local reward 中的 <g, delta_theta>。
+        param_before = [None] * self.num_params
+        grad_before = [None] * self.num_params
+        for i, p in enumerate(self.all_params):
+            if p.grad is not None:
+                param_before[i] = p.data.detach().clone()
+                grad_before[i] = p.grad.detach().clone()
+
         # --- E. Step (Base Optimizer) ---
         _ = self.base_optimizer.step(closure)
+
+        local_reward_raw = np.zeros((self.num_params,), dtype=np.float64)
+        local_reward_ema = self.local_reward_ema.copy()
+        prev_loss_for_local = float(self.last_loss) if self.last_loss is not None else float(loss_val_used)
+        prev_loss_for_local = max(prev_loss_for_local, 1e-10)
+        alpha = None
+        beta = None
+        r_global = None
+        reward = None
+        final_reward_vec = None
+
+        compute_on_this_rank = (not dist.is_initialized()) or (self.rank == 0)
+        if compute_on_this_rank:
+            for i, p in enumerate(self.all_params):
+                g = grad_before[i]
+                pb = param_before[i]
+                if g is None or pb is None:
+                    continue
+
+                delta_theta = p.data.detach() - pb
+                contrib = -float(torch.sum(g * delta_theta).item())
+                r_i = contrib / prev_loss_for_local
+                if not np.isfinite(r_i):
+                    r_i = 0.0
+
+                local_reward_raw[i] = r_i
+                local_reward_ema[i] = (
+                    self.local_reward_ema_gamma * local_reward_ema[i]
+                    + (1.0 - self.local_reward_ema_gamma) * r_i
+                )
+            local_reward_ema = self._sanitize_reward_vector(local_reward_ema)
+
+        if dist.is_initialized():
+            local_reward_ema = self._ddp_broadcast_vector_from_rank0(local_reward_ema)
+
+        self.local_reward_ema = local_reward_ema.copy()
 
         # --- F. Reward & Update & Spike Detection / Eval Logging ---
         if self.mode == 'train':
@@ -645,14 +757,14 @@ class RL_AdamW_Wrapper(Optimizer):
                     r_trend = np.clip(r_trend, -0.2, 0.2) * 2.0
 
                 p_stability = 0.0
-                grad_ratio = global_grad_norm / (self.grad_norm_avg + 1e-8)
+                grad_ratio = global_grad_norm / (grad_norm_baseline + 1e-8)
                 if grad_ratio > 1.5:
                     p_stability = (grad_ratio - 1.5) * 5.0
 
-                reward = float(r_perf + r_trend - p_stability)
+                r_global = float(r_perf + r_trend - p_stability)
 
                 if grad_ratio > 3.0:
-                    reward -= 20.0
+                    r_global -= 20.0
 
                 spike_penalty = 0.0
                 if self.ema_long is not None:
@@ -662,7 +774,14 @@ class RL_AdamW_Wrapper(Optimizer):
                         abort_training = True
                         if self.rank == 0:
                             print(f"\n[RL WARNING] Loss Spike Detected! Ratio: {spike_ratio:.2f}. Aborting Epoch.")
-                reward += spike_penalty
+                r_global += spike_penalty
+
+                alpha, beta = self._reward_mix_weights()
+                final_reward_vec = self._sanitize_reward_vector(alpha * local_reward_ema + beta * r_global)
+
+                if dist.is_initialized():
+                    final_reward_vec = self._ddp_broadcast_vector_from_rank0(final_reward_vec)
+                reward = float(np.mean(final_reward_vec))
 
                 should_store = True
                 if rank0_only_agent and self.rank != 0:
@@ -674,20 +793,23 @@ class RL_AdamW_Wrapper(Optimizer):
                         if self._pending_transition is not None:
                             # 这里的 pa 现在代表的是上一时刻的 pre_tanh
                             ps, pa, plp = self._pending_transition
-                            self.agent.store_transition((ps, pa, plp, reward))
+                            self.agent.store_transition((ps, pa, plp, final_reward_vec.copy()))
                         self._pending_transition = (state_batch, action_to_store, logprobs)
                     else:
-                        self.agent.store_transition((state_batch, action_to_store, logprobs, reward))
+                        self.agent.store_transition((state_batch, action_to_store, logprobs, final_reward_vec.copy()))
 
                 if self.rank == 0 and (self.current_step % self.log_interval == 0):
                     self._print_rl_stats(
                         loss_val_used=loss_val_used,
                         reward=reward,
+                        local_reward_ema=local_reward_ema,
+                        final_reward_vec=final_reward_vec,
+                        alpha=alpha,
+                        beta=beta,
                         base_lr=base_lr,
                         new_lrs=new_lrs,
                         lr_scales=lr_scales,
                         clip_frac_lr=clip_frac_lr,
-                        clip_frac_wd=clip_frac_wd,
                         cap_frac=cap_frac,
                         current_scale=current_scale,
                         state_batch=state_batch,
@@ -718,11 +840,14 @@ class RL_AdamW_Wrapper(Optimizer):
                 self._print_rl_stats(
                     loss_val_used=loss_val_used,
                     reward=None,
+                    local_reward_ema=local_reward_ema,
+                    final_reward_vec=None,
+                    alpha=None,
+                    beta=None,
                     base_lr=base_lr,
                     new_lrs=new_lrs,
                     lr_scales=lr_scales,
                     clip_frac_lr=clip_frac_lr,
-                    clip_frac_wd=clip_frac_wd,
                     cap_frac=cap_frac,
                     current_scale=current_scale,
                     state_batch=state_batch,
@@ -735,6 +860,51 @@ class RL_AdamW_Wrapper(Optimizer):
                     logprobs=logprobs,
                     pre_tanh=pre_tanh,
                 )
+
+        # Export compact reward stats for external loggers (e.g., wandb).
+        debug_stats = {
+            "step": float(self.current_step),
+            "loss_used": float(loss_val_used),
+            "base_lr": float(base_lr),
+            "avg_lr": float(np.mean(new_lrs)),
+            "cap_frac": float(cap_frac),
+            "clip_frac_lr": float(clip_frac_lr),
+            "action_scale": float(current_scale),
+        }
+        debug_stats.update(self._vec_summary(local_reward_raw, "local_reward_raw"))
+        debug_stats.update(self._vec_summary(local_reward_ema, "local_reward_ema"))
+
+        if final_reward_vec is not None:
+            debug_stats.update(self._vec_summary(final_reward_vec, "final_reward"))
+            debug_stats["reward_mean"] = float(np.mean(final_reward_vec))
+        if alpha is not None:
+            debug_stats["alpha"] = float(alpha)
+        if beta is not None:
+            debug_stats["beta"] = float(beta)
+        if r_global is not None:
+            debug_stats["r_global"] = float(r_global)
+        if reward is not None:
+            debug_stats["reward_scalar"] = float(reward)
+
+        # Weighted contribution diagnostics: how much local/global terms contribute
+        # to final reward magnitude after alpha/beta mixing.
+        if alpha is not None and local_reward_ema is not None:
+            local_weighted = np.asarray(alpha * local_reward_ema, dtype=np.float64)
+            debug_stats.update(self._vec_summary(local_weighted, "local_weighted"))
+
+            local_abs_mean = float(np.mean(np.abs(local_weighted)))
+            debug_stats["local_weighted_abs_mean"] = local_abs_mean
+
+            if beta is not None and r_global is not None:
+                global_weighted = float(beta * r_global)
+                debug_stats["global_weighted"] = global_weighted
+                global_weighted_abs = abs(global_weighted)
+                debug_stats["global_weighted_abs"] = global_weighted_abs
+
+                if global_weighted_abs > 1e-8:
+                    debug_stats["local_to_global_weighted_abs_ratio"] = local_abs_mean / global_weighted_abs
+
+        self.last_debug_stats = debug_stats
 
         self.last_loss = float(loss_val_used)
         self.current_step += 1
